@@ -5,17 +5,25 @@ from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QLineEdit, QGridL
 from PyQt5.QtCore import pyqtSignal
 
 import sys
+import ipaddress
 
 from tcp_gecko_client import TCPGeckoClient
 from ww_rng_tracker import WWRNGTracker
 from call_rate_plot_widget import CallRatePlotWidget
+from threading import Thread
 
 
 class RNGCounterMainWindow(QMainWindow):
+    _connection_complete_signal = pyqtSignal(bool, str)
+    _disconnect_complete_signal = pyqtSignal()
     _new_data_signal = pyqtSignal(int, float, int)
 
-    def __init__(self):
+    def __init__(self, client: TCPGeckoClient):
         super().__init__(parent=None)
+        self._client = client
+        self._connection_thread = None
+        self._connected = False
+        self._status_bar = self.statusBar()
         self.setWindowTitle('WWHD RNG Counter')
         self._main_layout = QGridLayout()
         self._ip_entry_hbox = QHBoxLayout()
@@ -23,6 +31,7 @@ class RNGCounterMainWindow(QMainWindow):
         self._wii_u_ip_entry = QLineEdit()
         self._ip_entry_hbox.addWidget(self._wii_u_ip_entry)
         self._connect_button = QPushButton('Connect')
+        self._connect_button.clicked.connect(self._handle_connect_clicked)
         self._ip_entry_hbox.addWidget(self._connect_button)
         self._main_layout.addLayout(self._ip_entry_hbox, 0, 0)
         self._call_rate_plot = CallRatePlotWidget(self)
@@ -44,6 +53,8 @@ class RNGCounterMainWindow(QMainWindow):
         self._central_widget = QWidget()
         self._central_widget.setLayout(self._main_layout)
         self.setCentralWidget(self._central_widget)
+        self._connection_complete_signal.connect(self._handle_connection_complete)
+        self._disconnect_complete_signal.connect(self._handle_disconnect_complete)
         self._new_data_signal.connect(self._handle_new_data)
 
     def receive_new_data(self, latest, average, total):
@@ -54,15 +65,50 @@ class RNGCounterMainWindow(QMainWindow):
         self._rolling_avg_ticks_display.setText(f'{average:.2f}')
         self._total_ticks_display.setText(str(total))
 
+    def _handle_connect_clicked(self, _: bool):
+        print('clicked')
+        self._connect_button.setDisabled(True)
+        if self._connected:
+            Thread(target=self._disconect_callback).start()
+        else:
+            if self._connection_thread is not None:
+                return
+            self._connection_thread = Thread(target=self._connection_callback)
+            self._connection_thread.start()
+
+    def _connection_callback(self):
+        connect_ip = self._wii_u_ip_entry.text()
+        try:
+            ipaddress.IPv4Address(connect_ip)
+        except ValueError:
+            self._connection_complete_signal.emit(False, 'Must enter a valid IP Address!')
+            return
+        if self._client.connect(connect_ip):
+            self._connection_complete_signal.emit(False, 'Connected!')
+        else:
+            self._connection_complete_signal.emit(True, 'Unable to connect to Wii U!')
+
+    def _disconect_callback(self):
+        self._client.disconnect()
+        self._disconnect_complete_signal.emit()
+
+    def _handle_connection_complete(self, success: bool, message: str):
+        self._status_bar.showMessage(message, 3000)
+        self._connected = success
+        if success:
+            self._connect_button.setText('Disconnect')
+        self._connect_button.setDisabled(False)
+        self._connection_thread = None
+    
+    def _handle_disconnect_complete(self):
+        self._connect_button.setText('Connect')
+        self._connect_button.setDisabled(False)
+
 
 def main(args: List[str]):
     client = TCPGeckoClient()
-    # if not client.connect('192.168.1.163'):
-    #     print('Unable to connect to TCPGecko')
-    #     return 1
-    # print(client.get_server_version_hash())
     app = QApplication(args)
-    main_window = RNGCounterMainWindow()
+    main_window = RNGCounterMainWindow(client)
     tracker = WWRNGTracker(client, main_window.receive_new_data)
     main_window.show()
     # tracker.start()
