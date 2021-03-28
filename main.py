@@ -1,4 +1,6 @@
 
+__version__ = '0.0.1'
+
 from typing import List
 
 from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QLineEdit, QGridLayout, QWidget, QHBoxLayout, QPushButton
@@ -26,7 +28,7 @@ class RNGCounterMainWindow(QMainWindow):
         self._connected = False
         self._status_bar = self.statusBar()
         self._first_data_plot_drops = 8
-        self.setWindowTitle('WWHD RNG Counter')
+        self.setWindowTitle('WWHD RNG Counter - V{}'.format(__version__))
         self._main_layout = QGridLayout()
         self._ip_entry_hbox = QHBoxLayout()
         self._ip_entry_hbox.addWidget(QLabel('Wii U IP:'))
