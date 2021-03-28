@@ -96,10 +96,16 @@ class TCPGeckoClient:
         to_send = struct.pack(
             '>LL', start_address, end_address
         )
-        sent_bytes = self._connection.send(self.Commands.READ_MEMORY.to_bytes(1, byteorder='big'))
+        try:
+            sent_bytes = self._connection.send(self.Commands.READ_MEMORY.to_bytes(1, byteorder='big'))
+        except (ConnectionResetError, ConnectionRefusedError):
+            return None
         if sent_bytes != 1:
             return None
-        sent_bytes = self._connection.send(to_send)
+        try:
+            sent_bytes = self._connection.send(to_send)
+        except (ConnectionResetError, ConnectionRefusedError):
+            return None
         if sent_bytes != len(to_send):
             return None
         read_memory_values = bytearray()
