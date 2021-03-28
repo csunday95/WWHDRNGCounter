@@ -108,7 +108,6 @@ class TCPGeckoClient:
             try:
                 prefix_byte = self._connection.recv(1)
             except socket.timeout:
-                print('timeout')
                 return None
             except ConnectionResetError:
                 return None

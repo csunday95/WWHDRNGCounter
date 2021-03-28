@@ -23,8 +23,6 @@ def forward_search_rng_state(search_state, start_state):
 
 def main(args):
     last_rng_state = [100, 100, 100]
-
-
     client = TCPGeckoClient()
     client.connect('192.168.1.163')
     print(client.get_server_version_hash())

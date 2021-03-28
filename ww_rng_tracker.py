@@ -59,6 +59,7 @@ class WWRNGTracker:
                 self.RNG_STATE_BASE_ADDR_PAL + 12
             )
             if raw_rng_state_data is None:
+                self._data_listener(-1, -1, -1)
                 time.sleep(0.1)
                 continue
             read_rng_state = list(struct.unpack('>III', raw_rng_state_data))

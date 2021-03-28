@@ -25,7 +25,7 @@ class RNGCounterMainWindow(QMainWindow):
         self._connection_thread = None
         self._connected = False
         self._status_bar = self.statusBar()
-        self._first_data_plot_drops = 3
+        self._first_data_plot_drops = 8
         self.setWindowTitle('WWHD RNG Counter')
         self._main_layout = QGridLayout()
         self._ip_entry_hbox = QHBoxLayout()
@@ -69,6 +69,9 @@ class RNGCounterMainWindow(QMainWindow):
         self._new_data_signal.emit(latest, average, total)
 
     def _handle_new_data(self, latest, average, total):
+        if latest < 0:
+            self._status_bar.showMessage('Got timeout from TCPGecko... May need to restart console/homebrew')
+            return
         self._latest_ticks_display.setText(str(latest))
         self._rolling_avg_ticks_display.setText(f'{average:.2f}')
         self._total_ticks_display.setText(str(total))
@@ -104,6 +107,7 @@ class RNGCounterMainWindow(QMainWindow):
 
     def _disconect_callback(self):
         self._tracker.stop()
+        self._tracker = None
         self._client.disconnect()
         self._disconnect_complete_signal.emit()
 
