@@ -4,16 +4,23 @@ from enum import IntEnum
 from tcp_gecko_client import TCPGeckoClient
 from threading import Thread
 from collections import deque
+import datetime
 import time
 import struct
+import os
+import csv
 
 
 class WWRNGTracker:
-    class RNGConstants(IntEnum):
-        RNG_STATE_BASE_ADDR_PAL = 0x10701BD4
+    RNG_STATE_BASE_ADDR_PAL = 0x10701BD4
 
-    def __init__(self, client: TCPGeckoClient, new_data_listener: Callable[[int, float, int], None]):
+    def __init__(self, 
+                 client: TCPGeckoClient, 
+                 log_file_path: str = 'logs/', 
+                 new_data_listener: Callable[[int, float, int], None] = None):
         self._client = client
+        self._log_file_path = log_file_path
+        self._log_file_handle = None
         self._running = False
         self._data_listener = new_data_listener
         self._collection_thread = None
@@ -38,11 +45,19 @@ class WWRNGTracker:
         total_ticks = 0
         time_deltas = deque(maxlen=5)
         rng_reading_steps = deque(maxlen=5)
+        if self._log_file_handle is not None:
+            log_file_writer = csv.writer(self._log_file_handle)
+            log_file_writer.writerow(['Timestamp', 'Runtime', 'Time Delta', 'Steps', 'Avg Steps', 'Total Steps'])
+        else:
+            log_file_writer = None
         while self._running:
             new_read_time = time.perf_counter()
             time_delta = new_read_time - prev_read_time
             prev_read_time = new_read_time
-            raw_rng_state_data = self._client.read_memory_range(0x10701BD4, 0x10701BE0)
+            raw_rng_state_data = self._client.read_memory_range(
+                self.RNG_STATE_BASE_ADDR_PAL, 
+                self.RNG_STATE_BASE_ADDR_PAL + 12
+            )
             if raw_rng_state_data is None:
                 time.sleep(0.1)
                 continue
@@ -53,15 +68,34 @@ class WWRNGTracker:
             rng_reading_steps.append(steps_taken)
             last_rng_state = read_rng_state
             last_second_avg = sum(rng_reading_steps) / sum(time_deltas)
-            self._data_listener(steps_taken, last_second_avg, total_ticks)
+            if self._log_file_handle is not None:
+                log_file_writer.writerow(
+                    [datetime.datetime.now().timestamp(), time.perf_counter(), time_delta, steps_taken, last_second_avg, total_ticks]
+                )
+            if self._data_listener is not None:
+                self._data_listener(steps_taken, last_second_avg, total_ticks)
+
+    def _open_log_file(self):
+        log_file_name = 'WWRNG_log_{}.csv'.format(time.strftime('%Y%m%d-%H%M'))
+        if not os.path.isdir(self._log_file_path):
+            try:
+                os.makedirs(self._log_file_path)
+            except OSError:
+                return None
+        return open(os.path.join(self._log_file_path, log_file_name), 'w')
 
     def start(self):
         self._running = True
+        if self._log_file_path is not None:
+            self._log_file_handle = self._open_log_file()
         self._collection_thread = Thread(target=self._collect_rng_data_callback)
         self._collection_thread.start()
 
     def stop(self):
         self._running = False
+        if self._log_file_handle is not None:
+            self._log_file_handle.close()
+            self._log_file_handle = None
         if self._collection_thread is None:
             return 
         self._collection_thread.join()

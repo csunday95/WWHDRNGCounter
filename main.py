@@ -25,6 +25,7 @@ class RNGCounterMainWindow(QMainWindow):
         self._connection_thread = None
         self._connected = False
         self._status_bar = self.statusBar()
+        self._first_data_plot_drops = 3
         self.setWindowTitle('WWHD RNG Counter')
         self._main_layout = QGridLayout()
         self._ip_entry_hbox = QHBoxLayout()
@@ -62,7 +63,7 @@ class RNGCounterMainWindow(QMainWindow):
         if self._connection_thread is not None:
             self._connection_thread.join()
         if self._tracker is not None:
-            self._tracker.stop
+            self._tracker.stop()
 
     def receive_new_data(self, latest, average, total):
         self._new_data_signal.emit(latest, average, total)
@@ -71,7 +72,10 @@ class RNGCounterMainWindow(QMainWindow):
         self._latest_ticks_display.setText(str(latest))
         self._rolling_avg_ticks_display.setText(f'{average:.2f}')
         self._total_ticks_display.setText(str(total))
-        self._call_rate_plot.append_new_call_data(latest, average, total)
+        if self._first_data_plot_drops > 0:
+            self._first_data_plot_drops -= 1
+        else:
+            self._call_rate_plot.append_new_call_data(latest, average, total)
 
     def _handle_connect_clicked(self, _: bool):
         self._connect_button.setDisabled(True)
@@ -91,12 +95,12 @@ class RNGCounterMainWindow(QMainWindow):
             self._connection_complete_signal.emit(False, 'Must enter a valid IP Address!')
             return
         connect_success = self._client.connect(connect_ip)
-        self._tracker = WWRNGTracker(self._client, self.receive_new_data)
-        self._tracker.start()
-        if connect_success:
-            self._connection_complete_signal.emit(True, 'Connected!')
-        else:
+        if not connect_success:
             self._connection_complete_signal.emit(False, 'Unable to connect to Wii U!')
+            return
+        self._tracker = WWRNGTracker(self._client, new_data_listener=self.receive_new_data)
+        self._tracker.start()
+        self._connection_complete_signal.emit(True, 'Connected! (may take a moment to find current RNG state)')
 
     def _disconect_callback(self):
         self._tracker.stop()
@@ -104,7 +108,7 @@ class RNGCounterMainWindow(QMainWindow):
         self._disconnect_complete_signal.emit()
 
     def _handle_connection_complete(self, success: bool, message: str):
-        self._status_bar.showMessage(message, 3000)
+        self._status_bar.showMessage(message, 5000)
         self._connected = success
         if success:
             self._connect_button.setText('Disconnect')
@@ -122,6 +126,7 @@ def main(args: List[str]):
     main_window = RNGCounterMainWindow(client)
     main_window.show()
     return_value = app.exec_()
+    client.disconnect()
     return return_value
 
 
