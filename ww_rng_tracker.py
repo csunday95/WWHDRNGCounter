@@ -44,6 +44,7 @@ class WWRNGTracker:
             prev_read_time = new_read_time
             raw_rng_state_data = self._client.read_memory_range(0x10701BD4, 0x10701BE0)
             if raw_rng_state_data is None:
+                time.sleep(0.1)
                 continue
             read_rng_state = list(struct.unpack('>III', raw_rng_state_data))
             steps_taken = self._forward_search_rng_state(read_rng_state, last_rng_state)

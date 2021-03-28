@@ -110,6 +110,8 @@ class TCPGeckoClient:
             except socket.timeout:
                 print('timeout')
                 return None
+            except ConnectionResetError:
+                return None
             if prefix_byte == TCPGECKO_BLOCK_ZERO_PREFIX:
                 return b'\x00' * chunk_length
             else:
