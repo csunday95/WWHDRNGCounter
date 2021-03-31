@@ -79,6 +79,7 @@ class TCPGeckoClient:
     def disconnect(self):
         if self._connection is not None:
             self._connection.close()
+            self._connection = None
 
     def get_server_version_hash(self):
         self._connection.send(self.Commands.GET_VERSION_HASH.to_bytes(1, 'big'))

@@ -77,4 +77,7 @@ class CallRatePlotWidget(QWidget):
         elif state == Qt.Checked:
             self._display_as_fps = True
             self._rate_plot_item.setLabels(left='Call Rate [Calls/frame]')
+
+    def clear_plots(self):
+        self._buffer.clear()
         

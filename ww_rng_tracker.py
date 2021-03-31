@@ -13,13 +13,16 @@ import csv
 
 class WWRNGTracker:
     RNG_STATE_BASE_ADDR_PAL = 0x10701BD4
+    TCP_REQUEST_DELAY = 0.050
 
     def __init__(self, 
                  client: TCPGeckoClient, 
                  log_file_path: str = 'logs/', 
-                 new_data_listener: Callable[[int, float, int], None] = None):
+                 new_data_listener: Callable[[int, float, int], None] = None,
+                 rolling_average_size: int = 4):
         self._client = client
         self._log_file_path = log_file_path
+        self._rolling_average_size = rolling_average_size
         self._log_file_handle = None
         self._running = False
         self._data_listener = new_data_listener
@@ -43,8 +46,8 @@ class WWRNGTracker:
         last_rng_state = [100, 100, 100]
         prev_read_time = 0
         total_ticks = 0
-        time_deltas = deque(maxlen=5)
-        rng_reading_steps = deque(maxlen=5)
+        time_deltas = deque(maxlen=self._rolling_average_size)
+        rng_reading_steps = deque(maxlen=self._rolling_average_size)
         if self._log_file_handle is not None:
             log_file_writer = csv.writer(self._log_file_handle)
             log_file_writer.writerow(['Timestamp', 'Runtime', 'Time Delta', 'Steps', 'Avg Steps', 'Total Steps'])
@@ -75,6 +78,7 @@ class WWRNGTracker:
                 )
             if self._data_listener is not None:
                 self._data_listener(steps_taken, last_second_avg, total_ticks)
+            time.sleep(self.TCP_REQUEST_DELAY)
 
     def _open_log_file(self):
         log_file_name = 'WWRNG_log_{}.csv'.format(time.strftime('%Y%m%d-%H%M'))
