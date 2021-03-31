@@ -5,6 +5,7 @@ from typing import List, Dict
 
 from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QLineEdit, QGridLayout, QWidget, QHBoxLayout, QPushButton
 from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtGui import QIcon
 
 import sys
 import ipaddress
@@ -18,6 +19,7 @@ from ww_rng_tracker import WWRNGTracker
 from call_rate_plot_widget import CallRatePlotWidget
 from tcpgecko_log_client import TCPGeckoLoggingClient
 
+ICON_PATH = 'icon.ico'
 DEFAULT_CONFIG = {'log_file_path': 'logs/', 'saved_ip': '192.168.', 'average_count': 4, 'udp_logging': False}
 
 
@@ -38,6 +40,8 @@ class RNGCounterMainWindow(QMainWindow):
         self._first_data_plot_drops = 5
         self._updated_config = dict()
         self.setWindowTitle('WWHD RNG Counter - V{}'.format(__version__))
+        if os.path.isfile(ICON_PATH):
+            self.setWindowIcon(QIcon(ICON_PATH))
         self._main_layout = QGridLayout()
         self._ip_entry_hbox = QHBoxLayout()
         self._ip_entry_hbox.addWidget(QLabel('Wii U IP:'))
